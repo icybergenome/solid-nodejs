@@ -1,9 +1,10 @@
 import { Service, Inject } from 'typedi';
 import jwt from 'jsonwebtoken';
-import MailerService from './mailer';
-import config from '../config';
 import argon2 from 'argon2';
 import { randomBytes } from 'crypto';
+import moment from 'moment';
+import MailerService from './mailer';
+import config from '../config';
 import { IUser, IUserInputDTO } from '../interfaces/IUser';
 import { EventDispatcher, EventDispatcherInterface } from '../decorators/eventDispatcher';
 import events from '../subscribers/events';
@@ -11,10 +12,10 @@ import events from '../subscribers/events';
 @Service()
 export default class AuthService {
   constructor(
-      @Inject('userModel') private userModel : Models.UserModel,
-      private mailer: MailerService,
-      @Inject('logger') private logger,
-      @EventDispatcher() private eventDispatcher: EventDispatcherInterface,
+    @Inject('userModel') private userModel: Models.UserModel,
+    private mailer: MailerService,
+    @Inject('logger') private logger,
+    @EventDispatcher() private eventDispatcher: EventDispatcherInterface,
   ) {}
 
   public async SignUp(userInputDTO: IUserInputDTO): Promise<{ user: IUser; token: string }> {
@@ -51,8 +52,8 @@ export default class AuthService {
       if (!userRecord) {
         throw new Error('User cannot be created');
       }
-      this.logger.silly('Sending welcome email');
-      await this.mailer.SendWelcomeEmail(userRecord);
+      // this.logger.silly('Sending welcome email');
+      // await this.mailer.SendWelcomeEmail(userRecord);
 
       this.eventDispatcher.dispatch(events.user.signUp, { user: userRecord });
 
@@ -100,9 +101,9 @@ export default class AuthService {
   }
 
   private generateToken(user) {
-    const today = new Date();
-    const exp = new Date(today);
-    exp.setDate(today.getDate() + 60);
+    const exp = moment()
+      .utc()
+      .add(2, 'hours');
 
     /**
      * A JWT means JSON Web Token, so basically it's a json that is _hashed_ into a string
@@ -119,7 +120,7 @@ export default class AuthService {
         _id: user._id, // We are gonna use this in the middleware 'isAuth'
         role: user.role,
         name: user.name,
-        exp: exp.getTime() / 1000,
+        exp: exp.unix() / 1000,
       },
       config.jwtSecret,
     );
